@@ -26,29 +26,48 @@ public class Queries
     }
     public static void firstQuery()
     {
-        Statement statement = null;
 
+        Statement createStmt = null;
+        Statement insertStmt = null;
         try
         {
-            statement = conn.createStatement();
 
+            insertStmt = conn.createStatement();
+            createStmt = conn.createStatement();
+            String createTable = "CREATE TABLE MostActiveUsers (Name VARCHAR(255))";
+            createStmt.execute(createTable);
 
-            String countNames = "SELECT ProfileName FROM\n(SELECT ProfileName, COUNT(Id)\n" +
-                    "FROM Reviews\nGROUP BY ProfileName\nORDER BY COUNT(Id) DESC) LIMIT 1000";
-            statement.executeQuery(countNames);
+            String insert = "INSERT INTO MostActiveUsers (Name)" +
+                    "SELECT ProfileName FROM\n" +
+                    "(SELECT ProfileName, COUNT(Id)\nFROM Reviews\nGROUP BY ProfileName\nORDER BY COUNT(Id) DESC) " +
+                    "LIMIT 1000";
 
+            insertStmt.execute(insert);
+            createStmt.close();
+            insertStmt.close();
 
-            statement.close();
         }
         catch (SQLException e)
         {
             e.printStackTrace();
         }
     }
+    public static void dropFirstTable()
+    {
+        Statement dropStmt = null;
+        try {
+            dropStmt = conn.createStatement();
+            String drop = "DROP TABLE MostActiveUsers";
+            dropStmt.execute(drop);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
+    }
     public static void main(String[] args)
     {
         connect();
+        dropFirstTable(); //for me only
         firstQuery();
         try {
             //DatabaseMetaData md = conn.getMetaData();
