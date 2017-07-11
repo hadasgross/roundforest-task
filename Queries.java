@@ -1,4 +1,3 @@
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.sql.*;
 import java.sql.Connection;
@@ -8,6 +7,7 @@ import java.util.*;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.Comparator;
+import java.util.Collections;
 
 import com.opencsv.CSVParser;
 class ValueComparator implements Comparator<String>{
@@ -29,19 +29,17 @@ class ValueComparator implements Comparator<String>{
 }
 public class Queries
 {
-    // JDBC driver name and database URL
     static final String JDBC_DRIVER = "org.sqlite.JDBC";
-    static final String DB_URL = "jdbc:sqlite:D:/task/src/database.sqlite";
+    static final String DB_URL = "jdbc:sqlite:";
     static Connection conn = null;
 
-    public static void connect()
+    public static void connect(String dbPath)
     {
-
         try
         {
             Class.forName(JDBC_DRIVER);
-            conn = DriverManager.getConnection(DB_URL);
-            System.out.println("Connecting to database...");
+            conn = DriverManager.getConnection(DB_URL + dbPath);
+            System.out.println("Connecting to database...\n");
         }
         catch(SQLException | ClassNotFoundException e)
         {
@@ -50,23 +48,21 @@ public class Queries
     }
     public static void firstQuery()
     {
-
-
-        Statement insertStmt = null;
+        Statement statement = null;
         try
         {
+            statement = conn.createStatement();
 
-            insertStmt = conn.createStatement();
-
-            String insert = "INSERT INTO MostActiveUsers (Name)" +
+            String query =
                     "SELECT ProfileName FROM\n" +
-                    "(SELECT ProfileName, COUNT(Id)\nFROM Reviews\nGROUP BY ProfileName\nORDER BY COUNT(Id) DESC) " +
-                    "LIMIT 1000";
-
-            insertStmt.execute(insert);
-
-            insertStmt.close();
-
+                    "(SELECT ProfileName, COUNT(Id)\nFROM Reviews\nGROUP BY ProfileName\nORDER BY COUNT(Id) DESC LIMIT 1000) " +
+                    "ORDER BY ProfileName ASC";
+            ResultSet rs = statement.executeQuery(query);
+            System.out.println("1000 MOST ACTIVE USERS:");
+            while (rs.next()) {
+                System.out.println(rs.getString(1)); //gets the first column's rows.
+            }
+            statement.close();
         }
         catch (SQLException e)
         {
@@ -75,69 +71,29 @@ public class Queries
     }
     public static void secondQuery()
     {
-
-        Statement insertStmt = null;
+        Statement stmt = null;
         try
         {
-
-            insertStmt = conn.createStatement();
-
-            insertStmt.execute("INSERT INTO MostCommentedFoods (ProductId)" +
-                    "SELECT ProductId FROM\n" +
-                    "(SELECT ProductId, COUNT(Id)\nFROM Reviews\nGROUP BY ProductId\nORDER BY COUNT(Id) DESC) " +
-                    "LIMIT 1000");
-
-            insertStmt.close();
+            stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT ProductId FROM\n" +
+                    "(SELECT ProductId, COUNT(Id)\nFROM Reviews\nGROUP BY ProductId\nORDER BY COUNT(Id) DESC LIMIT 1000) " +
+                    "ORDER BY ProductId ASC");
+            System.out.println("\n1000 MOST COMMENTED PRODUCTS:");
+            while (rs.next()) {
+                System.out.println(rs.getString(1)); //gets the first column's rows.
+            }
+            stmt.close();
         }
         catch (SQLException e)
         {
             e.printStackTrace();
         }
     }
+
     public static void thirdQuery()
     {
-
-        Statement insertStmt = null;
-        try
-        {
-
-            insertStmt = conn.createStatement();
-
-            insertStmt.execute("INSERT INTO MostUsedWords(Word) SELECT DISTINCT\n" +
-                    "SUBSTRING_INDEX(SUBSTRING_INDEX(Reviews.Text, ' ', numbers.n), ' ', -1) Text\n" +
-                    "FROM\n" +
-                    "(SELECT 1 n UNION ALL SELECT 2\n" +
-                    "UNION ALL SELECT 3 UNION ALL SELECT 4) numbers INNER JOIN Reviews\n" +
-                    "  ON CHAR_LENGTH(Reviews.Text)\n" +
-                    "     -CHAR_LENGTH(REPLACE(Reviews.Text, ' ', ''))>=numbers.n-1\n" +
-                    "ORDER BY\n" +
-                    "  Text");
-        }
-        catch (SQLException e)
-        {
-            e.printStackTrace();
-        }
-    }
-    public static void dropTables()
-    {
-        Statement dropStmt = null;
-        try {
-            dropStmt = conn.createStatement();
-            String drop = "DROP TABLE MostActiveUsers";
-            String drop2 = "DROP TABLE MostCommentedFoods";
-            String drop3 = "DROP TABLE MostUsedWords";
-            dropStmt.execute(drop);
-            dropStmt.execute(drop2);
-            dropStmt.execute(drop3);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-    }
-    public static void parseCsv()
-    {
         HashMap<String, Integer> map = new HashMap();
-        Queue<String> mostUsedWords = new PriorityQueue<>();
+        List<String> mostUsedWords = new ArrayList<>();
         CSVParser parser = new CSVParser();
         int maxNum = 0;
         try {
@@ -209,22 +165,11 @@ public class Queries
 
             count++;
         }
-
-        try
+        Collections.sort(mostUsedWords);
+        System.out.println("\n1000 MOST USED WORDS:");
+        for (String word: mostUsedWords)
         {
-            String SQL = "INSERT INTO MostUsedWords VALUES (?)";
-            PreparedStatement pstmt = conn.prepareStatement(SQL);
-
-
-            for (String word : mostUsedWords) {
-                pstmt.setString(1, word);
-                pstmt.executeUpdate();
-            }
-            pstmt.close();
-        }
-        catch (SQLException e)
-        {
-            e.printStackTrace();
+            System.out.println(word);
         }
     }
     public static TreeMap<String, Integer> sortMapByValue(HashMap<String, Integer> map){
@@ -235,27 +180,19 @@ public class Queries
         result.putAll(map);
         return result;
     }
-    public static void createTables()
-    {
-
-        try {
-            Statement createStmt = conn.createStatement();
-            createStmt.execute("CREATE TABLE MostUsedWords (Word VARCHAR(255))");
-            createStmt.execute("CREATE TABLE MostCommentedFoods (ProductId VARCHAR(255))");
-            createStmt.execute("CREATE TABLE MostActiveUsers (Name VARCHAR(255))");
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-    }
     public static void main(String[] args)
     {
-        connect();
-        dropTables(); //for me only
-        createTables();
+        if (args.length > 0)
+        {
+            connect(args[0]);
+        }
+        else
+        {
+            System.out.println("Usage: Queries fullpath_to_sqlite_db");
+        }
         firstQuery();
         secondQuery();
-        parseCsv();
+        thirdQuery();
         try {
             conn.close();
         } catch (SQLException e) {
