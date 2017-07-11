@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.Collections;
 
 import com.opencsv.CSVParser;
+
 class ValueComparator implements Comparator<String>{
 
     HashMap<String, Integer> map = new HashMap<String, Integer>();
@@ -27,6 +28,7 @@ class ValueComparator implements Comparator<String>{
         }
     }
 }
+
 public class Queries
 {
     static final String JDBC_DRIVER = "org.sqlite.JDBC";
@@ -90,14 +92,16 @@ public class Queries
         }
     }
 
-    public static void thirdQuery()
+    public static void thirdQuery(String csvPath)
     {
         HashMap<String, Integer> map = new HashMap();
         List<String> mostUsedWords = new ArrayList<>();
         CSVParser parser = new CSVParser();
         int maxNum = 0;
-        try {
-            FileReader fileReader = new FileReader("D:/task/src/Reviews.csv");
+        //Parsing csv file:
+        try
+        {
+            FileReader fileReader = new FileReader(csvPath);
             BufferedReader reader= new BufferedReader(fileReader);
             String line = null;
             String text;
@@ -118,10 +122,12 @@ public class Queries
                         text += parts[i];
                     }
                 }
-                //text = text.replaceAll("!|.|,|;", "");
+
                 words = text.split(" ");
                 for (int i = 0; i < words.length; i++)
                 {
+                    //Trying to avoid unwanted chars and duplicate words (lower/upper case)
+                    words[i] = words[i].toLowerCase();
                     words[i] = words[i].replace(",", "");
                     words[i] = words[i].replace(".", "");
                     words[i] = words[i].replace("(", "");
@@ -151,9 +157,13 @@ public class Queries
 
             reader.close();
             fileReader.close();
-        } catch (IOException e) {
+        }
+        //There is an exception from csvParser I didn't take care of because it doesn't collapse the program.
+        catch (IOException e)
+        {
             e.printStackTrace();
         }
+        //Sort map by value (number of appearances of each word), and putting first 1000 into a list.
         TreeMap<String,Integer> sortedMap = sortMapByValue(map);
         int count = 0;
         for(Map.Entry<String,Integer> entry : sortedMap.entrySet()) {
@@ -165,6 +175,7 @@ public class Queries
 
             count++;
         }
+        //Sort list of 1000 most used words by alphabetical order and printing it.
         Collections.sort(mostUsedWords);
         System.out.println("\n1000 MOST USED WORDS:");
         for (String word: mostUsedWords)
@@ -172,27 +183,25 @@ public class Queries
             System.out.println(word);
         }
     }
+
     public static TreeMap<String, Integer> sortMapByValue(HashMap<String, Integer> map){
         Comparator<String> comparator = new ValueComparator(map);
-        //TreeMap is a map sorted by its keys.
-        //The comparator is used to sort the TreeMap by keys.
         TreeMap<String, Integer> result = new TreeMap<String, Integer>(comparator);
         result.putAll(map);
         return result;
     }
+    
     public static void main(String[] args)
     {
-        if (args.length > 0)
+        if (args.length < 2)
         {
-            connect(args[0]);
+            System.out.println("Usage: Queries [fullpath_to_sqlite_db] [fullpath_to_csv_file]");
         }
-        else
-        {
-            System.out.println("Usage: Queries fullpath_to_sqlite_db");
-        }
+
+        connect(args[0]);
         firstQuery();
         secondQuery();
-        thirdQuery();
+        thirdQuery(args[1]);
         try {
             conn.close();
         } catch (SQLException e) {
